@@ -2,125 +2,156 @@ import json
 import logging
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from .base_scanner import BaseScanner
-from ..findings import SecurityFinding # Make sure SecurityFinding is imported if needed for add_finding
+from ..findings import SecurityFinding, FindingsManager
 
 logger = logging.getLogger("patcha")
 
 class BanditScanner(BaseScanner):
-    """Scanner for running Bandit security analysis"""
-    
-    def scan(self) -> List[Any]:
-        """Run Bandit scan for security vulnerabilities"""
-        logger.info("Running Bandit scan...")
-        # Use a temporary file for results to avoid conflicts if run in parallel
-        # Or ensure unique filenames if not using tempfile
-        # For simplicity, keeping the original filename for now:
-        output_file = self.repo_path / "bandit_results.json"
+    """Scanner for running Bandit security analysis on Python code"""
+
+    def __init__(self, repo_path: Path, findings_manager: FindingsManager):
+        super().__init__(repo_path, findings_manager)
+        self.name = "Bandit"
+
+    def scan(self) -> None:
+        """Run Bandit scan"""
+        if not self.check_tool_installed("bandit"):
+            logger.error(f"{self.name}: 'bandit' command not found. Skipping scan.")
+            return
+
+        # Command to run Bandit recursively, outputting JSON
         command = [
-            "bandit", "-r", str(self.repo_path),
-            "-f", "json", "-o", str(output_file),
-            # Add '-q' for quieter output, '-iii' for high confidence, etc. if desired
+            "bandit",
+            "-r",  # Recursive
+            str(self.repo_path),
+            "-f", "json", # Output format JSON
+            "-q", # Quiet mode to suppress progress/stats, only show JSON/errors
+            # Add configuration or specific tests if needed, e.g.,
+            # "-c", "bandit.yaml",
+            # "-t", "B101,B311" # Run only specific tests
+            # Exclude paths if necessary (though Bandit is usually good with Python files)
+            # "-x", "./tests/"
         ]
+        logger.debug(f"Running command: {' '.join(command)}")
 
-        findings_list = [] # Store findings locally before returning
         try:
-            if not self.check_tool_installed("bandit"):
-                logger.warning("Bandit not found. Skipping Bandit scan.")
-                return []
+            result = self.run_subprocess(command, timeout=300) # 5-minute timeout
 
-            result = subprocess.run(
-                command, capture_output=True, text=True, check=False, cwd=self.repo_path
-            )
+            if result is None:
+                logger.error(f"{self.name}: Scan failed or timed out.")
+                return
 
-            # Handle Bandit exit codes:
-            # 0 = Success, no findings
-            # 1 = Success, findings found
-            # 2 = Error (e.g., bad arguments, file not found)
-            if result.returncode == 0:
-                logger.info("Bandit scan completed successfully with no findings.")
-            elif result.returncode == 1:
-                logger.info("Bandit scan completed successfully, findings reported.")
-                # Proceed to parse results
+            # Bandit often puts errors in stderr, even with JSON output
+            if result.stderr:
+                 # Log stderr at debug level unless it clearly indicates a fatal error
+                 logger.debug(f"{self.name} stderr: {result.stderr.strip()}")
+
+            if result.returncode != 0 and not result.stdout.strip():
+                 # If Bandit fails and produces no JSON, log error
+                 logger.error(f"{self.name}: Scan failed with exit code {result.returncode} and no output.")
+                 return
+            elif result.returncode != 0:
+                 # --- Change log level from WARNING to INFO ---
+                 # Log info if exit code is non-zero but there IS output to parse
+                 # logger.warning(f"{self.name}: Scan process exited with code {result.returncode}. Attempting to parse output.")
+                 logger.info(f"{self.name}: Scan process exited with code {result.returncode}. Attempting to parse output.")
+
+
+            # Parse the JSON output from stdout
+            stdout_content = result.stdout.strip()
+            if stdout_content:
+                logger.debug(f"{self.name} stdout received ({len(stdout_content)} bytes). Parsing...")
+                self._parse_output(stdout_content)
             else:
-                # Log error for other non-zero exit codes
-                error_message = f"Bandit scan failed with exit code {result.returncode}."
-                if result.stderr:
-                    error_message += f"\nBandit stderr:\n{result.stderr.strip()}"
-                else:
-                    error_message += " No stderr output from Bandit."
-                logger.error(error_message)
-                # Optionally raise error or return empty list depending on desired behavior
-                # return [] # Stop processing for this scanner on error
-
-            # Log stdout for debug info regardless of exit code
-            if result.stdout:
-                 logger.debug(f"Bandit stdout:\n{result.stdout.strip()}")
-
-            # Attempt to parse results if the file exists (even if exit code was > 1, maybe partial results)
-            if output_file.exists():
-                findings_list = self._parse_results(output_file) # Get findings from parser
-            elif result.returncode <= 1: # Only warn if file missing on success codes
-                logger.warning(f"Bandit output file not found: {output_file}, though exit code was {result.returncode}")
+                 # Handle case where return code was 0 but no output (e.g., no Python files)
+                 if result.returncode == 0:
+                     logger.info(f"{self.name}: Scan completed with no findings reported (or no Python files found).")
+                 # Non-zero exit code with no output already handled above
 
         except FileNotFoundError:
-            logger.error("Bandit command not found. Is Bandit installed and in PATH?")
+            logger.error(f"{self.name}: 'bandit' command not found. Is Bandit installed and in PATH?")
         except Exception as e:
-            logger.error(f"An unexpected error occurred during Bandit scan: {e}", exc_info=True)
-        finally:
-            if output_file.exists():
-                try:
-                    output_file.unlink()
-                except OSError as e:
-                    logger.warning(f"Could not remove temporary Bandit file {output_file}: {e}")
+            logger.error(f"{self.name}: An unexpected error occurred during Bandit scan: {e}", exc_info=True)
 
-        # Return the findings parsed from this scan
-        # The main scanner class should aggregate findings from all scanners
-        return findings_list
-    
-    def _parse_results(self, output_file: Path) -> List[SecurityFinding]:
-        """Process Bandit findings and return a list of SecurityFinding objects"""
-        parsed_findings = []
+
+    def _parse_output(self, json_output: str) -> None:
+        """Parse Bandit JSON output"""
         try:
-            with open(output_file, 'r') as f:
-                data = json.load(f)
-
-            # Check for errors reported within the JSON structure itself
-            if data.get("errors"):
-                 logger.warning(f"Bandit reported errors in JSON output: {data['errors']}")
-
+            data = json.loads(json_output)
+            errors = data.get("errors", [])
             results = data.get("results", [])
-            for item in results:
-                # Map Bandit severity (Low, Medium, High) to your format if needed
-                severity_map = {"LOW": "low", "MEDIUM": "medium", "HIGH": "high"}
-                severity = severity_map.get(item.get("issue_severity", "MEDIUM"), "medium")
 
-                # Create a SecurityFinding object (ensure class definition matches)
-                finding = SecurityFinding(
-                    title=item.get("issue_text", "Bandit Finding"),
-                    message=f"{item.get('test_name', '')} ({item.get('test_id', '')})",
-                    severity=severity,
-                    confidence=item.get("issue_confidence", "medium").lower(), # Ensure lowercase
-                    file_path=item.get("filename", "").replace(str(self.repo_path) + '/', '', 1), # Make relative
-                    line_number=item.get("line_number", 0),
-                    code_snippet=item.get("code", ""),
-                    scanner="bandit",
-                    type=item.get("test_id", "unknown"), # Use Bandit's test ID as type
-                    cwe=self._get_cwe(item.get("test_id", "")), # Use helper to get CWE
-                    remediation=None, # Bandit doesn't usually provide this directly
-                    metadata={"test_id": item.get("test_id"), "test_name": item.get("test_name")},
-                    # timestamp will be added by FindingsManager usually
-                )
-                parsed_findings.append(finding)
+            # Log Bandit's internal errors (like file parsing issues) at DEBUG level
+            if errors:
+                # --- Change log level from WARNING to DEBUG ---
+                # logger.warning(f"Bandit reported errors in JSON output: {errors}")
+                logger.debug(f"Bandit reported errors in JSON output: {errors}")
+
+            if not results:
+                logger.info(f"{self.name}: No findings reported in results.")
+                return
+
+            logger.info(f"{self.name}: Processing {len(results)} findings.")
+            for item in results:
+                try:
+                    # Map Bandit severity (LOW, MEDIUM, HIGH) and confidence to your system
+                    severity_map = {"LOW": "low", "MEDIUM": "medium", "HIGH": "high"}
+                    confidence_map = {"LOW": "low", "MEDIUM": "medium", "HIGH": "high"}
+
+                    severity = severity_map.get(item.get("issue_severity", "MEDIUM"), "medium")
+                    confidence = confidence_map.get(item.get("issue_confidence", "MEDIUM"), "medium")
+
+                    # Extract file path relative to repo
+                    file_path_str = item.get("filename", "")
+                    try:
+                        # Ensure the path is absolute before making relative
+                        abs_file_path = Path(file_path_str)
+                        # Handle cases where Bandit might provide absolute paths already
+                        if not abs_file_path.is_absolute():
+                             abs_file_path = self.repo_path / file_path_str
+
+                        relative_file_path = abs_file_path.relative_to(self.repo_path)
+                        file_path_display = str(relative_file_path)
+                    except ValueError:
+                        # Handle cases where the path might not be relative (e.g., absolute paths outside repo)
+                        file_path_display = file_path_str
+                        logger.warning(f"{self.name}: Could not make Bandit path relative: {file_path_str}")
+
+
+                    finding_obj = SecurityFinding(
+                        scanner=self.name,
+                        rule_id=item.get("test_id", "unknown"),
+                        title=item.get("test_name", "Bandit Finding"), # Use test_name as title
+                        severity=severity,
+                        confidence=confidence,
+                        file_path=file_path_display,
+                        line_number=item.get("line_number", 0),
+                        message=item.get("issue_text", "No description provided."),
+                        code_snippet=item.get("code", ""),
+                        cwe=item.get("issue_cwe", {}).get("id", ""), # Extract CWE ID
+                        type="sast", # Bandit is SAST
+                        metadata={ # Store extra Bandit info
+                            "more_info": item.get("more_info", ""),
+                            "line_range": item.get("line_range", [])
+                        }
+                        # Remediation might need separate generation based on test_id/issue_text
+                    )
+                    self.add_finding(finding_obj)
+
+                except Exception as finding_error:
+                    test_id = item.get('test_id', 'N/A')
+                    path = item.get('filename', 'N/A')
+                    logger.error(f"{self.name}: Error parsing individual Bandit finding (ID: {test_id}, Path: {path}): {finding_error}", exc_info=True)
+                    logger.debug(f"Problematic Bandit result dict: {item}")
+
 
         except json.JSONDecodeError:
-            logger.error(f"Failed to decode Bandit JSON output from {output_file}")
+            logger.error(f"{self.name}: Failed to decode Bandit JSON output.")
+            logger.debug(f"{self.name} Raw Output (first 500 chars): {json_output[:500]}")
         except Exception as e:
-            logger.error(f"Error parsing Bandit results: {e}", exc_info=True)
-
-        logger.debug(f"Parsed {len(parsed_findings)} findings from Bandit.")
-        return parsed_findings # Return the list
+            logger.error(f"{self.name}: Error parsing Bandit results: {e}", exc_info=True)
     
     def _get_cwe(self, test_id: str) -> str:
         """Map Bandit test ID to CWE (example mapping)"""

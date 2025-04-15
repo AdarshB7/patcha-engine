@@ -95,13 +95,11 @@ class SemgrepScanner(BaseScanner):
             results = data.get("results", [])
             errors = data.get("errors", []) # Semgrep reports file-specific errors here
 
-            # Log Semgrep's internal errors as warnings
+            # Log Semgrep's internal errors at DEBUG level
             if errors:
-                # Log only a summary or first few errors if the list is long
                 error_summary = [f"{e.get('type')}: {e.get('message', '')[:100]}..." for e in errors[:5]]
-                logger.warning(f"{self.name} reported {len(errors)} errors during scan (e.g., file parsing issues). Summary: {error_summary}")
-                # You could log the full errors list at DEBUG level if needed
-                # logger.debug(f"{self.name} full errors: {errors}")
+                logger.debug(f"Semgrep reported {len(errors)} errors during scan (e.g., file parsing issues). Summary: {error_summary}")
+                # logger.debug(f"{self.name} full errors: {errors}") # Optional full debug log
 
             if not results:
                 logger.info(f"{self.name}: No findings reported.")
@@ -203,9 +201,9 @@ class SemgrepScanner(BaseScanner):
 
         except json.JSONDecodeError:
             logger.error(f"{self.name}: Failed to decode Semgrep JSON output")
-            logger.debug(f"{self.name} Raw Output (first 500 chars): {stdout_content[:500]}") # Log snippet for debugging
+            logger.debug(f"{self.name} Raw Output (first 500 chars): {stdout_content[:500]}")
         except Exception as e:
-            logger.error(f"{self.name}: Error parsing Semgrep results: {e}", exc_info=True) 
+            logger.error(f"{self.name}: Error parsing Semgrep results: {e}", exc_info=True)
 
     def _map_severity(self, semgrep_severity: str) -> str:
         """Maps Semgrep severity (INFO, WARNING, ERROR) to Patcha levels."""
