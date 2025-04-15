@@ -1,0 +1,7 @@
+setup.py
+patcha.egg-info/PKG-INFO
+patcha.egg-info/SOURCES.txt
+patcha.egg-info/dependency_links.txt
+patcha.egg-info/entry_points.txt
+patcha.egg-info/requires.txt
+patcha.egg-info/top_level.txt

@@ -1,0 +1,8 @@
+semgrep>=1.0.0
+bandit>=1.7.0
+truffleHog>=2.2.1
+jinja2>=3.0.0
+rich>=10.0.0
+typer>=0.4.0
+pyyaml>=6.0
+requests>=2.25.0

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patcha Security Scan Report</title>
+    <style>
+        body { font-family: sans-serif; line-height: 1.6; padding: 20px; }
+        h1, h2 { color: #333; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .severity-critical { background-color: #dc3545; color: white; }
+        .severity-high { background-color: #fd7e14; color: white; }
+        .severity-medium { background-color: #ffc107; color: black; }
+        .severity-low { background-color: #17a2b8; color: white; }
+        .severity-info { background-color: #6c757d; color: white; }
+        .code-snippet { font-family: monospace; background-color: #eee; padding: 2px 4px; display: block; white-space: pre-wrap; word-wrap: break-word; }
+        .summary { background-color: #f8f9fa; padding: 15px; border: 1px solid #dee2e6; margin-bottom: 20px; }
+        .summary p { margin: 5px 0; }
+    </style>
+</head>
+<body>
+    <h1>Patcha Security Scan Report</h1>
+
+    <div class="summary">
+        <h2>Scan Summary</h2>
+        <p><strong>Repository:</strong> {{ repository_path | e }}</p>
+        <p><strong>Scan Time:</strong> {{ scan_timestamp | e }}</p>
+        <p><strong>Security Score:</strong> {{ security_score | e }} / 10.0</p>
+        <p><strong>Total Findings:</strong> {{ findings_count }}</p>
+        <p>
+            <strong>Counts:</strong>
+            Critical: {{ severity_counts.critical }},
+            High: {{ severity_counts.high }},
+            Medium: {{ severity_counts.medium }},
+            Low: {{ severity_counts.low }},
+            Info: {{ severity_counts.info }}
+        </p>
+    </div>
+
+    <h2>Findings</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Severity</th>
+                <th>Rule ID</th>
+                <th>File</th>
+                <th>Line</th>
+                <th>Message</th>
+                <th>Code Snippet</th>
+                <th>Remediation</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for finding in findings %}
+            <tr class="severity-{{ finding.severity | lower }}">
+                <td>{{ finding.severity | capitalize }}</td>
+                <td>{{ finding.rule_id }}</td>
+                <td>{{ finding.file_path }}</td>
+                <td>{{ finding.line_number }}</td>
+                <td>{{ finding.message }}</td>
+                <td><pre><code>{{ finding.code_snippet | e }}</code></pre></td>
+                <td>{{ finding.remediation }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="7">No findings reported.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+</body>
+</html>

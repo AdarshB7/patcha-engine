@@ -1,0 +1,15 @@
+Metadata-Version: 2.1
+Name: patcha
+Version: 0.1.0
+Summary: A security scanner for code repositories
+Home-page: https://github.com/patcha/patcha
+Author: Patcha Team
+Author-email: info@patcha.dev
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Security
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Requires-Python: >=3.8
