@@ -52,7 +52,7 @@ patcha run /path/to/your/code
 
 ## 📝 Changelog
 
-### [1.0.0] - 2024-03-20
+### [1.0.0] - 2024-04-14
 #### Added
 - Initial release of Patcha Engine
 - Basic code scanning capabilities
@@ -83,13 +83,8 @@ We welcome contributions from the community! Here's how you can help:
 Join our community to stay updated and get help:
 
 - [Discord Server](https://discord.gg/aBKCQxRPDb)
-- Email: patchasec@gmail.com
+- [Email](patchasec@gmail.com)
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- Thanks to all our contributors
-- Special thanks to the open-source community for their inspiration and support 
