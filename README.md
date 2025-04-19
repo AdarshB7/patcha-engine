@@ -56,7 +56,7 @@ patcha /path/to/your/code
 
 ### [0.2.2] - 2025-04-19
 ### Added
-- HTML and sairf file report
+- HTML and sarif file report
 - Trivy support added
 
 ### Fixed
