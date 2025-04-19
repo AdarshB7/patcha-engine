@@ -54,6 +54,14 @@ patcha /path/to/your/code
 
 ## 📝 Changelog
 
+### [0.2.2] - 2025-04-19
+### Added
+- HTML and sairf file report
+- Trivy support added
+
+### Fixed
+- Verbose logging
+
 ### [0.2.1] - 2025-04-19
 #### Fixed
 - Compliation Bug
