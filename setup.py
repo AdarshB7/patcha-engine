@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="patcha",
-    version="0.1.0",
+    version="0.2.0",
     packages=find_packages(),
     install_requires=[
         "semgrep>=1.0.0",
@@ -21,8 +21,8 @@ setup(
     },
     description="A security scanner for code repositories",
     author="Patcha Team",
-    author_email="info@patcha.dev",
-    url="https://github.com/patcha/patcha",
+    author_email="patchasec@gmail.com",
+    url="https://github.com/AdarshB7/patcha-engine",
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",

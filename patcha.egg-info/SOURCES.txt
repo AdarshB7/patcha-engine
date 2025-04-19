@@ -1,4 +1,5 @@
 .DS_Store
+README.md
 setup.py
 patcha/bulk.py
 patcha/cli.py
