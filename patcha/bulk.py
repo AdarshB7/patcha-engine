@@ -175,6 +175,15 @@ class SecurityScanner:
                  self.logger.error(f"Failed to save JSON report to {self.output_path}: {e}", exc_info=True)
 
 
+            # Add this before HTML report generation
+            if hasattr(self, 'report_generator') and self.report_generator:
+                # Check if template directory exists
+                template_dir = Path(self.report_generator.jinja_env.loader.searchpath[0])
+                self.logger.info(f"Template directory path: {template_dir}")
+                self.logger.info(f"Template directory exists: {template_dir.exists()}")
+                if template_dir.exists():
+                    self.logger.info(f"Templates in directory: {list(template_dir.glob('*.html'))}")
+
             # Generate detailed HTML report (patcha.html) if ReportGenerator is available
             if self.report_generator:
                 try:
@@ -182,29 +191,14 @@ class SecurityScanner:
                     html_filename = self.base_filename + ".html"
                     html_report_path_obj = self.output_path.with_name(html_filename)
 
-                    # Call the HTML report generation method
-                    generated_html_path = self.report_generator.generate_report(
-                        self.findings,
-                        self.output_path.parent, # Pass the output directory
-                        "html",
-                        self.security_score
+                    # Call the HTML report generation method directly
+                    html_report_path = self.report_generator._generate_html_report(
+                         self.findings, html_report_path_obj, self.security_score
                     )
-                    if generated_html_path:
-                        # Rename generated file if necessary (generate_report creates timestamped name)
-                        # Or adjust generate_report to accept the exact output path
-                        # For now, assume generate_report creates the correct file or we adjust it later
-                        # Let's assume generate_report needs adjustment to write to a specific path
-                        # We'll call the internal method directly for now for simplicity here:
-                        html_report_path = self.report_generator._generate_html_report(
-                             self.findings, html_report_path_obj, self.security_score
-                        )
-                        if html_report_path:
-                            self.logger.info(f"HTML report generated: {html_report_path}")
-                        else:
-                            self.logger.error(f"HTML report generation method failed.")
+                    if html_report_path:
+                        self.logger.info(f"HTML report generated: {html_report_path}")
                     else:
-                         self.logger.error(f"HTML report generation failed.")
-
+                        self.logger.error(f"HTML report generation method failed.")
 
                 except AttributeError as ae:
                      self.logger.error(f"HTML Report generation failed: {ae}. Ensure methods exist in ReportGenerator.")
