@@ -3,6 +3,7 @@ from setuptools import setup, find_packages
 setup(
     name="patcha",
     version="0.2.0",
+    license="MIT",
     packages=find_packages(),
     install_requires=[
         "semgrep>=1.0.0",
