@@ -15,23 +15,48 @@ class PatchaLogger:
         # Configure logging
         # Only show INFO+ for non-verbose, DEBUG+ for verbose
         level = logging.DEBUG if verbose else logging.INFO
+        
         # Use a simpler format, especially for non-verbose
-        log_format = "%(asctime)s - %(levelname)s - %(message)s" if verbose else "%(message)s"
+        log_format = "%(message)s" if verbose else "%(message)s"
+        
+        # Configure the root logger
         logging.basicConfig(
             level=level,
             format=log_format,
             datefmt="[%X]",
-            # Only use RichHandler for verbose mode to keep non-verbose minimal
-            # For non-verbose, basic handler might be sufficient or even preferred
-            handlers=[RichHandler(rich_tracebacks=True, console=self.console, show_path=verbose)] if verbose else [logging.StreamHandler()]
+            handlers=[logging.StreamHandler()]  # Simpler handler
         )
         
+        # Get the patcha logger
         self.logger = logging.getLogger("patcha")
-        # If not verbose, prevent lower-level loggers (like scanners) from outputting INFO
-        if not verbose:
-             # Set level specifically for the 'patcha' logger if basicConfig affects root
-             self.logger.setLevel(logging.WARNING) # Show WARNING, ERROR, CRITICAL by default
-             # Or, iterate through existing handlers and set their level if needed
+        
+        # Set the level for the patcha logger
+        if verbose:
+            # Even in verbose mode, filter out repetitive messages
+            self.logger.setLevel(logging.INFO)  # Only show INFO and above by default
+            
+            # Create a filter to suppress repetitive debug messages
+            class RepetitiveFilter(logging.Filter):
+                def __init__(self):
+                    super().__init__()
+                    self.seen_patterns = set()
+                    
+                def filter(self, record):
+                    # Skip repetitive "Added finding" and "Severity metadata missing" messages
+                    if "Added finding:" in record.getMessage() or "Severity metadata missing" in record.getMessage():
+                        return False
+                    return True
+            
+            # Apply the filter to the logger
+            self.logger.addFilter(RepetitiveFilter())
+        else:
+            # In non-verbose mode, only show warnings and above
+            self.logger.setLevel(logging.WARNING)
+            
+            # Also set all other loggers to WARNING level
+            for name in logging.root.manager.loggerDict:
+                if name != "patcha":
+                    logging.getLogger(name).setLevel(logging.WARNING)
 
     def start_scan(self, repo_path: str) -> None:
         """Log the start of a scan"""
@@ -39,18 +64,26 @@ class PatchaLogger:
         self.console.print(f"Starting security scan for: {repo_path}...")
     
     def tool_start(self, tool_name: str) -> None:
-        """Log the start of a tool/phase only at DEBUG level"""
-        # Only log this if verbose mode is enabled
-        self.logger.debug(f"Running {tool_name}...")
+        """Log the start of a tool's execution."""
+        if self.verbose:
+            self.logger.info(f"Starting {tool_name} scan...")
+        else:
+            # In non-verbose mode, just print a simple indicator
+            self.console.print(f"[bold blue]▶ Running {tool_name}...[/bold blue]")
     
-    def tool_complete(self, tool_name: str, findings_count: Optional[int] = None) -> None:
-        """Log the completion of a tool/phase only at DEBUG level"""
-        # Only log this if verbose mode is enabled
-        self.logger.debug(f"{tool_name} completed.")
+    def tool_complete(self, tool_name: str) -> None:
+        """Log the successful completion of a tool's execution."""
+        if self.verbose:
+            self.logger.info(f"{tool_name} scan completed successfully.")
+        else:
+            # In non-verbose mode, use a checkmark
+            self.console.print(f"[bold green]✓ {tool_name} completed[/bold green]")
     
-    def tool_error(self, tool_name: str, error: str) -> None:
-        """Log an error from a tool at ERROR level (will always show)"""
-        self.logger.error(f"Error during {tool_name}: {error}")
+    def tool_error(self, tool_name: str, error_message: str) -> None:
+        """Log an error that occurred during a tool's execution."""
+        self.logger.error(f"{tool_name}: {error_message}")
+        # Always show errors, even in non-verbose mode
+        self.console.print(f"[bold red]✗ {tool_name} error: {error_message}[/bold red]")
     
     def debug(self, msg: str, *args: Any, **kwargs: Any) -> None:
         """Log 'msg % args' with severity 'DEBUG'."""
@@ -77,19 +110,46 @@ class PatchaLogger:
         # This will show by default
         self.logger.critical(msg, *args, **kwargs)
     
-    def final_summary(self, findings: List[SecurityFinding], score: Optional[float], output_path: Path, json_report_path: Optional[Path], html_report_path: Optional[Path]):
-        """Logs the final scan summary (simplified)."""
-        # Use print for the final summary for guaranteed visibility
-        self.console.print("-" * 40)
-        self.console.print("Scan complete.")
+    def final_summary(self, findings: List[SecurityFinding], score: Optional[float],
+                      json_report_path: Optional[Path],
+                      html_report_path: Optional[Path],
+                      sarif_report_path: Optional[Path]):
+        """Logs the final scan summary."""
+        # Use rich formatting for a nicer summary
+        self.console.print("\n[bold cyan]═════════════════════════════════════════[/bold cyan]")
+        self.console.print("[bold cyan]🔍 SCAN COMPLETE[/bold cyan]")
+        
+        # Security score with color based on value
         score_display = f"{score:.1f}/10.0" if score is not None else "N/A"
-        self.console.print(f"Calculated Security Score: {score_display}")
-        # output_path is the primary JSON (shield.json)
-        self.console.print(f"Findings Summary: {output_path}")
-        # json_report_path is None based on previous changes, so skip
-        if html_report_path and html_report_path.exists():
-            self.console.print(f"HTML Report: {html_report_path}")
-        self.console.print("-" * 40)
+        score_color = "green" if score and score >= 7.0 else "yellow" if score and score >= 4.0 else "red"
+        self.console.print(f"[bold]Security Score:[/bold] [bold {score_color}]{score_display}[/bold {score_color}]")
+        
+        # Findings summary
+        self.console.print(f"[bold]Total Findings:[/bold] {len(findings)}")
+        
+        # Report paths
+        if json_report_path:
+            if isinstance(json_report_path, str):
+                json_report_path = Path(json_report_path)
+            
+            if json_report_path.exists():
+                self.console.print(f"[bold]JSON Report:[/bold] {json_report_path}")
+
+        if html_report_path:
+            if isinstance(html_report_path, str):
+                html_report_path = Path(html_report_path)
+            
+            if html_report_path.exists():
+                self.console.print(f"[bold]HTML Report:[/bold] {html_report_path}")
+        
+        if sarif_report_path:
+            if isinstance(sarif_report_path, str):
+                sarif_report_path = Path(sarif_report_path)
+            
+            if sarif_report_path.exists():
+                self.console.print(f"[bold]SARIF Report:[/bold] {sarif_report_path}")
+
+        self.console.print("[bold cyan]═════════════════════════════════════════[/bold cyan]\n")
 
     def _get_severity_counts(self, findings: List[SecurityFinding]) -> Dict[str, int]:
         """Helper to count findings by severity."""

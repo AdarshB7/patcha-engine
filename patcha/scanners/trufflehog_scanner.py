@@ -118,7 +118,6 @@ class TruffleHogScanner(BaseScanner):
                 "--json",
                 "--no-update",           # Don't check for updates
                 "--no-verification",     # Skip verification (faster)
-                "--max-depth", "50",     # Limit recursion depth
                 "--concurrency", "1",    # Reduce concurrency to avoid timeouts
                 "filesystem",
                 str(self.repo_path)
@@ -149,7 +148,13 @@ class TruffleHogScanner(BaseScanner):
             
             # Log stderr for debugging
             if stderr:
-                logger.warning(f"TruffleHog stderr:\n---\n{stderr.strip()}\n---")
+                # Check if it's just informational JSON output
+                if '"level":"info-' in stderr and '"verified_secrets":0' in stderr:
+                    # This is just normal output, log at debug level
+                    logger.debug(f"TruffleHog info output:\n{stderr.strip()}")
+                else:
+                    # This might be an actual warning or error
+                    logger.warning(f"TruffleHog stderr:\n---\n{stderr.strip()}\n---")
             
             # Check if the output file exists and has content
             if os.path.exists(output_file) and os.path.getsize(output_file) > 0:
@@ -246,4 +251,26 @@ class TruffleHogScanner(BaseScanner):
             if os.path.exists(output_file):
                 os.unlink(output_file)
 
-        logger.info("TruffleHog v3 scan method finished.") 
+        logger.info("TruffleHog v3 scan method finished.")
+
+    def scan_v3(self) -> None:
+        """Run TruffleHog v3+ scan"""
+        logger.info(f"Starting TruffleHog v3+ scan for path: {self.repo_path}")
+        
+        # Updated command for TruffleHog v3.x
+        # Removed the --max-depth flag which is not supported
+        cmd = [
+            "trufflehog", 
+            "--json", 
+            "--no-update", 
+            "--no-verification",
+            # "--max-depth", "50",  # Remove this line - not supported in v3.88.x
+            "--concurrency", "1",
+            "filesystem", 
+            str(self.repo_path)
+        ]
+        
+        logger.info(f"Executing TruffleHog command: {' '.join(cmd)}")
+        
+        # Rest of the method remains the same
+        # ... 

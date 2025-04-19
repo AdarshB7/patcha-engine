@@ -2,6 +2,8 @@
 
 Patcha is an LLM-enhanced codebase scanner that seamlessly integrates with your AI Code Editor to provide comprehensive security analysis and vulnerability detection. Unlike traditional security tools, Patcha generates AI-friendly reports that your AI Code Editor can directly use to fix security issues. This means you can identify and resolve vulnerabilities effortlessly - no need to switch between tools or rely on base LLMs unfit for security. Simply run Patcha, add the generated `shield.json` as context to your AI Code Editor, and let it handle the security fixes while you focus on shipping your code with confidence. 
 
+Warning: Works better for macOS and Linux
+
 ## ✨ Features
 
 - 🔒 **Comprehensive Security**: Deep scanning of your codebase for vulnerabilities and security issues
@@ -52,14 +54,11 @@ patcha /path/to/your/code
 
 ## 📝 Changelog
 
-### [1.0.0] - 2024-04-14
-#### Added
-- Initial release of Patcha Engine
-- Basic code scanning capabilities
-- Support for JavaScript, TypeScript, Python, and Java
-- CLI interface for easy integration
-- Shield.json generation for AI Code Editor integration
+### [0.2.1] - 2025-04-19
+#### Fixed
+- Compliation Bug
 
+### [0.2.0] - 2025-04-19
 #### Changed
 - Improved scanning accuracy
 - Enhanced error reporting
@@ -67,6 +66,14 @@ patcha /path/to/your/code
 
 #### Fixed
 - Various bug fixes and stability improvements
+
+### [0.1.0] - 2025-04-12
+#### Added
+- Initial release of Patcha Engine
+- Basic code scanning capabilities
+- Support for JavaScript, TypeScript, Python, and Java
+- CLI interface for easy integration
+- Shield.json generation for AI Code Editor integration
 
 ## 🤝 Contributing
 

@@ -5,71 +5,112 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Patcha Security Scan Report</title>
     <style>
-        body { font-family: sans-serif; line-height: 1.6; padding: 20px; }
-        h1, h2 { color: #333; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
-        .severity-critical { background-color: #dc3545; color: white; }
-        .severity-high { background-color: #fd7e14; color: white; }
-        .severity-medium { background-color: #ffc107; color: black; }
-        .severity-low { background-color: #17a2b8; color: white; }
-        .severity-info { background-color: #6c757d; color: white; }
-        .code-snippet { font-family: monospace; background-color: #eee; padding: 2px 4px; display: block; white-space: pre-wrap; word-wrap: break-word; }
-        .summary { background-color: #f8f9fa; padding: 15px; border: 1px solid #dee2e6; margin-bottom: 20px; }
-        .summary p { margin: 5px 0; }
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1, h2, h3 {
+            color: #2c3e50;
+        }
+        .timestamp {
+            color: #7f8c8d;
+            font-style: italic;
+        }
+        .summary {
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .score {
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .critical { color: #e74c3c; }
+        .high { color: #e67e22; }
+        .medium { color: #f39c12; }
+        .low { color: #3498db; }
+        .info { color: #2ecc71; }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
     </style>
 </head>
 <body>
     <h1>Patcha Security Scan Report</h1>
-
+    <p class="timestamp">Generated on: {{ scan_timestamp }}</p>
+    
     <div class="summary">
         <h2>Scan Summary</h2>
-        <p><strong>Repository:</strong> {{ repository_path | e }}</p>
-        <p><strong>Scan Time:</strong> {{ scan_timestamp | e }}</p>
-        <p><strong>Security Score:</strong> {{ security_score | e }} / 10.0</p>
+        <p><strong>Repository:</strong> {{ repository_path }}</p>
+        <p><strong>Security Score:</strong> <span class="score">{{ security_score }}</span></p>
         <p><strong>Total Findings:</strong> {{ findings_count }}</p>
-        <p>
-            <strong>Counts:</strong>
-            Critical: {{ severity_counts.critical }},
-            High: {{ severity_counts.high }},
-            Medium: {{ severity_counts.medium }},
-            Low: {{ severity_counts.low }},
-            Info: {{ severity_counts.info }}
-        </p>
+        
+        <h3>Findings by Severity</h3>
+        <ul>
+            <li class="critical">Critical: {{ severity_counts.critical }}</li>
+            <li class="high">High: {{ severity_counts.high }}</li>
+            <li class="medium">Medium: {{ severity_counts.medium }}</li>
+            <li class="low">Low: {{ severity_counts.low }}</li>
+            <li class="info">Info: {{ severity_counts.info }}</li>
+        </ul>
     </div>
-
-    <h2>Findings</h2>
-    <table>
-        <thead>
+    
+    <h2>Findings Details</h2>
+    {% if findings_count == 0 %}
+        <p>No security findings detected.</p>
+    {% else %}
+        {% set current_file = "" %}
+        {% for finding in findings %}
+            {% if finding.file_path != current_file %}
+                {% if current_file != "" %}
+                    </tbody>
+                    </table>
+                {% endif %}
+                <h3>{{ finding.file_path or "Unknown File" }}</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Severity</th>
+                            <th>Rule</th>
+                            <th>Line</th>
+                            <th>Message</th>
+                            <th>Code</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                {% set current_file = finding.file_path %}
+            {% endif %}
             <tr>
-                <th>Severity</th>
-                <th>Rule ID</th>
-                <th>File</th>
-                <th>Line</th>
-                <th>Message</th>
-                <th>Code Snippet</th>
-                <th>Remediation</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for finding in findings %}
-            <tr class="severity-{{ finding.severity | lower }}">
-                <td>{{ finding.severity | capitalize }}</td>
-                <td>{{ finding.rule_id }}</td>
-                <td>{{ finding.file_path }}</td>
-                <td>{{ finding.line_number }}</td>
+                <td class="{{ finding.severity }}">{{ finding.severity }}</td>
+                <td>{{ finding.rule_id or finding.title }}</td>
+                <td>{{ finding.line_number or "N/A" }}</td>
                 <td>{{ finding.message }}</td>
-                <td><pre><code>{{ finding.code_snippet | e }}</code></pre></td>
-                <td>{{ finding.remediation }}</td>
+                <td>{% if finding.code_snippet %}<pre>{{ finding.code_snippet }}</pre>{% else %}N/A{% endif %}</td>
             </tr>
-            {% else %}
-            <tr>
-                <td colspan="7">No findings reported.</td>
-            </tr>
-            {% endfor %}
+        {% endfor %}
         </tbody>
-    </table>
-
+        </table>
+    {% endif %}
 </body>
 </html>

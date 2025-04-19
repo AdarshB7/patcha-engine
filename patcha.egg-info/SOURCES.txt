@@ -1,4 +1,5 @@
 .DS_Store
+LICENSE
 README.md
 setup.py
 patcha/bulk.py
@@ -6,6 +7,7 @@ patcha/cli.py
 patcha/findings.py
 patcha/logger.py
 patcha/progress.py
+patcha/reporting.py
 patcha.egg-info/PKG-INFO
 patcha.egg-info/SOURCES.txt
 patcha.egg-info/dependency_links.txt
@@ -39,10 +41,12 @@ patcha/scanners/__pycache__/trufflehog_scanner.cpython-39.pyc
 patcha/utils/deduplication.py
 patcha/utils/file_utils.py
 patcha/utils/remediation.py
+patcha/utils/sarif_converter.py
 patcha/utils/scoring.py
 patcha/utils/verification.py
 patcha/utils/__pycache__/deduplication.cpython-39.pyc
 patcha/utils/__pycache__/file_utils.cpython-39.pyc
 patcha/utils/__pycache__/remediation.cpython-39.pyc
+patcha/utils/__pycache__/sarif_converter.cpython-39.pyc
 patcha/utils/__pycache__/scoring.cpython-39.pyc
 patcha/utils/__pycache__/verification.cpython-39.pyc
