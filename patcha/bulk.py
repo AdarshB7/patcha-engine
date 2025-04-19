@@ -28,6 +28,7 @@ from .utils.verification import VulnerabilityVerifier
 from .utils.scoring import SecurityScorer
 from .utils.remediation import RemediationGenerator
 from .reporting.report_generator import ReportGenerator
+from .utils.sarif_converter import convert_shield_to_sarif
 
 # Configure logging
 logging.basicConfig(
@@ -45,14 +46,15 @@ class SecurityScanner:
         self.logger = PatchaLogger(verbose=verbose)
 
         # --- Setup output path for shield.json ---
-        # Use the provided output file name, default to 'shield.json'
+        # Use the provided output file name, default to 'patcha.json'
         # Place it directly in the repository root.
-        output_filename = output_file if output_file else "shield.json"
+        output_filename = output_file if output_file else "patcha.json"
         self.output_path = self.repo_path / output_filename
         # Ensure the parent directory (repo root) exists, which it should
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
         self.logger.info(f"Primary output summary will be saved to: {self.output_path}")
-
+        # Store base filename for other reports
+        self.base_filename = self.output_path.stem
 
         # --- Initialize components ---
         self.findings_manager = FindingsManager()
@@ -62,14 +64,14 @@ class SecurityScanner:
         self.scorer = SecurityScorer()
         self.remediation_generator = RemediationGenerator()
         try:
-            # Pass repo_path to ReportGenerator if needed by its __init__
+            # Pass repo_path to ReportGenerator
             self.report_generator = ReportGenerator(self.repo_path)
         except ImportError as e:
-            self.logger.warning(f"Could not import ReportGenerator (missing dependencies like Jinja2?): {e}. Reporting will be limited.")
+            self.logger.warning(f"Could not import ReportGenerator (missing dependencies like Jinja2?): {e}. HTML/SARIF reporting might be limited.")
             self.report_generator = None
-        except TypeError: # Catch if ReportGenerator.__init__ doesn't take repo_path
-             self.logger.debug("ReportGenerator does not accept repo_path argument, initializing without it.")
-             self.report_generator = ReportGenerator()
+        except Exception as e: # Catch other potential init errors
+             self.logger.error(f"Failed to initialize ReportGenerator: {e}", exc_info=True)
+             self.report_generator = None
 
 
         self.findings: List[SecurityFinding] = []
@@ -149,40 +151,90 @@ class SecurityScanner:
 
             # --- Generate reports ---
             self.logger.tool_start("Report Generation")
-            json_report_path: Optional[Path] = None # This will be same as self.output_path now
+            json_report_path: Optional[Path] = None
             html_report_path: Optional[Path] = None
+            sarif_report_path: Optional[Path] = None
 
-            # Save the primary findings summary (shield.json)
+            # Save the primary findings summary (patcha.json)
             try:
-                # self.output_path is already set to shield.json (or custom name)
-                with open(self.output_path, 'w') as f:
-                    json.dump([finding.to_dict() for finding in self.findings], f, indent=4)
-                self.logger.info(f"Findings summary saved to: {self.output_path}")
-                # Set json_report_path for final summary logging
+                # self.output_path is already set to patcha.json (or custom name)
+                # Ensure findings have a to_dict method or use __dict__
+                findings_dict_list = [finding.to_dict() for finding in self.findings]
+                report_data = {
+                    "scan_timestamp": datetime.now().isoformat(),
+                    "repository_path": str(self.repo_path),
+                    "security_score": self.security_score,
+                    "findings_count": len(self.findings),
+                    "findings": findings_dict_list
+                }
+                with open(self.output_path, 'w', encoding='utf-8') as f:
+                    json.dump(report_data, f, indent=2) # Use indent=2 for consistency
+                self.logger.info(f"JSON report saved to: {self.output_path}")
                 json_report_path = self.output_path
             except Exception as e:
-                 self.logger.error(f"Failed to save findings summary to {self.output_path}: {e}")
+                 self.logger.error(f"Failed to save JSON report to {self.output_path}: {e}", exc_info=True)
 
 
-            # Generate detailed HTML report (shield.html) if ReportGenerator is available
+            # Generate detailed HTML report (patcha.html) if ReportGenerator is available
             if self.report_generator:
                 try:
-                    # --- Derive HTML path from JSON path ---
-                    # Replace .json extension (or add .html if no extension)
-                    html_filename = self.output_path.stem + ".html"
-                    html_report_path = self.output_path.with_name(html_filename)
+                    # Derive HTML path from JSON path (e.g., patcha.json -> patcha.html)
+                    html_filename = self.base_filename + ".html"
+                    html_report_path_obj = self.output_path.with_name(html_filename)
 
                     # Call the HTML report generation method
-                    self.report_generator._generate_html_report(self.findings, html_report_path, self.security_score) # Assuming (findings, path, score)
-                    self.logger.info(f"HTML report generated: {html_report_path}")
+                    generated_html_path = self.report_generator.generate_report(
+                        self.findings,
+                        self.output_path.parent, # Pass the output directory
+                        "html",
+                        self.security_score
+                    )
+                    if generated_html_path:
+                        # Rename generated file if necessary (generate_report creates timestamped name)
+                        # Or adjust generate_report to accept the exact output path
+                        # For now, assume generate_report creates the correct file or we adjust it later
+                        # Let's assume generate_report needs adjustment to write to a specific path
+                        # We'll call the internal method directly for now for simplicity here:
+                        html_report_path = self.report_generator._generate_html_report(
+                             self.findings, html_report_path_obj, self.security_score
+                        )
+                        if html_report_path:
+                            self.logger.info(f"HTML report generated: {html_report_path}")
+                        else:
+                            self.logger.error(f"HTML report generation method failed.")
+                    else:
+                         self.logger.error(f"HTML report generation failed.")
+
 
                 except AttributeError as ae:
-                     self.logger.error(f"Report generation failed: {ae}. Ensure methods exist in ReportGenerator.")
+                     self.logger.error(f"HTML Report generation failed: {ae}. Ensure methods exist in ReportGenerator.")
                      self.logger.debug("Traceback:", exc_info=True)
                 except Exception as e:
-                    self.logger.error(f"Failed to generate HTML report: {e}", exc_info=True) # More specific error log
+                    self.logger.error(f"Failed to generate HTML report: {e}", exc_info=True)
+
+                # --- Generate SARIF report (patcha.sarif) ---
+                try:
+                    # Derive SARIF path (e.g., patcha.json -> patcha.sarif)
+                    sarif_filename = self.base_filename + ".sarif"
+                    sarif_report_path_obj = self.output_path.with_name(sarif_filename)
+
+                    # Call the SARIF report generation method (add this to ReportGenerator)
+                    sarif_report_path = self.report_generator._generate_sarif_report(
+                         self.findings, sarif_report_path_obj # Pass findings and target path
+                    )
+                    if sarif_report_path:
+                        self.logger.info(f"SARIF report generated: {sarif_report_path}")
+                    else:
+                        self.logger.error(f"SARIF report generation method failed.")
+
+                except AttributeError as ae:
+                     self.logger.error(f"SARIF Report generation failed: {ae}. Ensure _generate_sarif_report method exists in ReportGenerator.")
+                     self.logger.debug("Traceback:", exc_info=True)
+                except Exception as e:
+                    self.logger.error(f"Failed to generate SARIF report: {e}", exc_info=True)
+
             else:
-                self.logger.warning("ReportGenerator not available, skipping HTML report generation.")
+                self.logger.warning("ReportGenerator not available, skipping HTML and SARIF report generation.")
 
             self.logger.tool_complete("Report Generation")
 
@@ -190,9 +242,9 @@ class SecurityScanner:
             self.logger.final_summary(
                 self.findings,
                 self.security_score,
-                self.output_path, # Pass the primary JSON path
-                None, # Pass None for the separate full JSON report path
-                html_report_path # Pass the HTML path if generated
+                json_report_path, # Pass the primary JSON path
+                html_report_path, # Pass the HTML path if generated
+                sarif_report_path # Pass the SARIF path if generated
             )
 
         except Exception as e:

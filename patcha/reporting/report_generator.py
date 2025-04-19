@@ -7,6 +7,8 @@ from datetime import datetime
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from ..findings import SecurityFinding
 import jinja2
+# --- Import SARIF converter ---
+from ..utils.sarif_converter import convert_shield_to_sarif
 
 logger = logging.getLogger("patcha")
 
@@ -39,104 +41,139 @@ class ReportGenerator:
                         report_format: str,
                         security_score: Optional[float]) -> Optional[str]:
         """Generate a security report in the specified format"""
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        report_filename = f"security_report_{timestamp}.{report_format}"
-        # Place report in the target repository path
-        report_path = Path(target_path) / report_filename
+        # --- Adjust filename generation to use base name ---
+        # We'll construct the full path directly in the calling code (bulk.py)
+        # This method will now expect the full target_path including filename
+        # Let's revert this - bulk.py will call the _generate_* methods directly
 
-        try:
-            if report_format == "json":
-                return self._generate_json_report(findings, report_path, security_score)
-            elif report_format == "html":
-                # Check if Jinja env was initialized successfully
-                if not self.jinja_env:
-                    logger.error("Cannot generate HTML report: Jinja2 environment not available.")
-                    return None # Or raise an error
-                return self._generate_html_report(findings, report_path, security_score)
-            else:
-                logger.warning(f"Unsupported report format: {report_format}")
-                return None
+        # This method is less useful now if bulk.py calls _generate_* directly
+        # Keep it for potential future use or refactor bulk.py to use it
+        pass # Or remove/comment out if not used
 
-            logger.info(f"{report_format.upper()} report generated: {report_path}")
-            return str(report_path)
-
-        except Exception as e:
-            # Catch errors during file writing or template rendering
-            logger.error(f"Error generating {report_format} report: {e}", exc_info=True)
-            # Specific error for template loading was moved to __init__ or _generate_html_report
-            return None # Indicate failure
-    
-    def _generate_json_report(self, findings: List[SecurityFinding], 
-                             report_path: Path,
-                             security_score: Optional[float]) -> str:
+    def _generate_json_report(self, findings: List[SecurityFinding],
+                             report_path: Path, # Expects full path including filename
+                             security_score: Optional[float]) -> Optional[str]:
         """Generate a JSON report"""
-        report_data = {
-            "scan_timestamp": datetime.now().isoformat(),
-            "repository_path": str(self.repo_path),
-            "security_score": security_score,
-            "findings_count": len(findings),
-            "findings": [f.to_dict() for f in findings] # Assuming findings have a to_dict method
-        }
-        with open(report_path, 'w') as f:
-            json.dump(report_data, f, indent=2)
-        
-        logger.info(f"JSON report generated: {report_path}")
-        return str(report_path)
+        logger.info(f"Generating JSON report at: {report_path}")
+        try:
+            report_data = {
+                "scan_timestamp": datetime.now().isoformat(),
+                "repository_path": str(self.repo_path),
+                "security_score": security_score,
+                "findings_count": len(findings),
+                "findings": [f.to_dict() for f in findings] # Ensure findings have to_dict
+            }
+            with open(report_path, 'w', encoding='utf-8') as f: # Add encoding
+                json.dump(report_data, f, indent=2)
+            logger.info(f"JSON report generated: {report_path}")
+            return str(report_path)
+        except Exception as e:
+            logger.error(f"Error writing JSON report to {report_path}: {e}", exc_info=True)
+            return None
     
     def _generate_html_report(self, findings: List[SecurityFinding],
-                             report_path: Path,
+                             report_path: Path, # Expects full path including filename
                              security_score: Optional[float]) -> Optional[str]:
         """Generate an HTML report"""
+        logger.info(f"Generating HTML report at: {report_path}")
         html_content = "" # Initialize empty content
         try:
-            # Ensure Jinja environment is available (already checked in generate_report, but double-check)
+            # Ensure Jinja environment is available
             if not self.jinja_env:
-                 logger.error("Cannot generate HTML report: Jinja2 environment not initialized.")
-                 return None
+                # Try to initialize it here as a fallback
+                try:
+                    logger.info(f"Attempting to initialize Jinja2 environment from {TEMPLATE_DIR}")
+                    self.jinja_env = Environment(
+                        loader=FileSystemLoader(TEMPLATE_DIR),
+                        autoescape=select_autoescape(['html', 'xml'])
+                    )
+                    logger.info("Jinja2 environment initialized successfully")
+                except Exception as je:
+                    logger.error(f"Failed to initialize Jinja2 environment: {je}", exc_info=True)
+                    return None
+                
+            # Check if template directory exists
+            if not TEMPLATE_DIR.exists():
+                logger.error(f"Template directory does not exist: {TEMPLATE_DIR}")
+                return None
+            
+            # List available templates for debugging
+            try:
+                templates = list(TEMPLATE_DIR.glob('*.html'))
+                logger.info(f"Available templates in {TEMPLATE_DIR}: {[t.name for t in templates]}")
+            except Exception as e:
+                logger.error(f"Error listing templates: {e}")
+            
+            # Try to get the template
+            try:
+                template = self.jinja_env.get_template("report_template.html")
+                logger.info("Successfully loaded report_template.html")
+            except jinja2.exceptions.TemplateNotFound as tnf:
+                logger.error(f"Template 'report_template.html' not found: {tnf}")
+                return None
+            except Exception as e:
+                logger.error(f"Error loading template: {e}", exc_info=True)
+                return None
 
-            logger.debug(f"Attempting to load HTML template: report_template.html from {TEMPLATE_DIR}")
-            template = self.jinja_env.get_template("report_template.html")
-            logger.debug("HTML template loaded successfully.")
-
-            # Prepare context data for the template
+            # Prepare context for template rendering
             context = {
                 "scan_timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "repository_path": str(self.repo_path.name), # Just the name might be better for report
+                "repository_path": str(self.repo_path.name),
                 "security_score": f"{security_score:.1f}" if security_score is not None else "N/A",
-                "findings": findings, # Pass the list of finding objects
-                "severity_counts": self._get_severity_counts(findings), # Helper to count severities
-                "findings_count": len(findings) # Add total count for convenience in template
-                # Add any other data needed by the template
+                "findings": findings,
+                "severity_counts": self._get_severity_counts(findings),
+                "findings_count": len(findings)
             }
-            logger.debug(f"Rendering HTML template with {len(findings)} findings.")
-            html_content = template.render(context)
-            logger.debug("HTML template rendered successfully.")
+            
+            # Render the template
+            try:
+                html_content = template.render(context)
+                logger.info(f"Template rendered successfully, content length: {len(html_content)}")
+            except Exception as e:
+                logger.error(f"Error rendering template: {e}", exc_info=True)
+                return None
 
-            # --- Add check for empty content ---
             if not html_content or html_content.isspace():
-                logger.error("HTML template rendered to empty or whitespace content. Check template logic.")
-                # Optionally write the empty file anyway, or return None
-                # For debugging, let's write it but log the error.
-                # return None # Alternative: return None if content is empty
+                logger.error("HTML template rendered to empty or whitespace content.")
+                return None
 
-            # --- Write the content to file ---
-            logger.debug(f"Attempting to write HTML report to: {report_path}")
-            with open(report_path, 'w', encoding='utf-8') as f:
-                f.write(html_content)
-            logger.info(f"HTML report file written successfully: {report_path}")
-            return str(report_path) # Return path on success
+            # Write the HTML file
+            try:
+                with open(report_path, 'w', encoding='utf-8') as f:
+                    f.write(html_content)
+                logger.info(f"HTML report file written successfully: {report_path}")
+                return str(report_path) # Return path on success
+            except Exception as e:
+                logger.error(f"Error writing HTML file: {e}", exc_info=True)
+                return None
 
-        except jinja2.exceptions.TemplateNotFound as e:
-             logger.error(f"HTML template file 'report_template.html' not found in {TEMPLATE_DIR}: {e}", exc_info=True)
-             return None # Return None on failure
-        except jinja2.exceptions.TemplateSyntaxError as e:
-             logger.error(f"Syntax error in HTML template 'report_template.html' at line {e.lineno}: {e.message}", exc_info=True)
-             return None # Return None on failure
         except Exception as e:
-            # Log specific HTML generation errors (e.g., template rendering issues, file writing issues)
-            logger.error(f"Error generating HTML report content or writing to file {report_path}: {e}", exc_info=True)
-            # Don't re-raise, return None to indicate failure
-            return None # Return None on failure
+            logger.error(f"Error generating HTML report: {e}", exc_info=True)
+            return None
+
+    # --- Add SARIF Generation Method ---
+    def _generate_sarif_report(self, findings: List[SecurityFinding],
+                              report_path: Path) -> Optional[str]:
+        """Generate a SARIF report"""
+        logger.info(f"Generating SARIF report at: {report_path}")
+        try:
+            # Convert findings (which are SecurityFinding objects) to dicts first
+            findings_dict_list = [finding.to_dict() for finding in findings] # Use to_dict
+            # Generate SARIF content using the converter function
+            # Pass repo path as URI for better SARIF context
+            repo_uri = self.repo_path.as_uri() if self.repo_path else None
+            sarif_content = convert_shield_to_sarif(findings_dict_list, repo_uri=repo_uri)
+
+            with open(report_path, 'w', encoding='utf-8') as f:
+                json.dump(sarif_content, f, indent=2)
+            logger.info(f"SARIF report file written successfully: {report_path}")
+            return str(report_path)
+        except ImportError:
+             logger.error("Failed to generate SARIF report: sarif_converter utility not found or failed to import.")
+             return None
+        except Exception as e:
+            logger.error(f"Error generating SARIF report: {e}", exc_info=True)
+            return None
 
     def _get_severity_counts(self, findings: List[SecurityFinding]) -> dict:
         """Helper method to count findings by severity for the report context"""

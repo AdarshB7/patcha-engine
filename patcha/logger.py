@@ -77,18 +77,46 @@ class PatchaLogger:
         # This will show by default
         self.logger.critical(msg, *args, **kwargs)
     
-    def final_summary(self, findings: List[SecurityFinding], score: Optional[float], output_path: Path, json_report_path: Optional[Path], html_report_path: Optional[Path]):
-        """Logs the final scan summary (simplified)."""
+    def final_summary(self, findings: List[SecurityFinding], score: Optional[float],
+                      json_report_path: Optional[Path],
+                      html_report_path: Optional[Path],
+                      sarif_report_path: Optional[Path]):
+        """Logs the final scan summary."""
         # Use print for the final summary for guaranteed visibility
         self.console.print("-" * 40)
         self.console.print("Scan complete.")
         score_display = f"{score:.1f}/10.0" if score is not None else "N/A"
         self.console.print(f"Calculated Security Score: {score_display}")
-        # output_path is the primary JSON (shield.json)
-        self.console.print(f"Findings Summary: {output_path}")
-        # json_report_path is None based on previous changes, so skip
-        if html_report_path and html_report_path.exists():
-            self.console.print(f"HTML Report: {html_report_path}")
+        self.console.print(f"Total findings: {len(findings)}")
+
+        # Display paths to generated reports if they exist
+        if json_report_path:
+            # Convert string path to Path object if needed
+            if isinstance(json_report_path, str):
+                json_report_path = Path(json_report_path)
+            
+            if json_report_path.exists():
+                self.console.print(f"JSON Report: {json_report_path}")
+            else:
+                self.logger.warning(f"JSON report file not found at expected path: {json_report_path}")
+
+        if html_report_path:
+            # Convert string path to Path object if needed
+            if isinstance(html_report_path, str):
+                html_report_path = Path(html_report_path)
+            
+            if html_report_path.exists():
+                self.console.print(f"HTML Report: {html_report_path}")
+        
+        # --- Add SARIF path logging ---
+        if sarif_report_path:
+            # Convert string path to Path object if needed
+            if isinstance(sarif_report_path, str):
+                sarif_report_path = Path(sarif_report_path)
+            
+            if sarif_report_path.exists():
+                self.console.print(f"SARIF Report: {sarif_report_path}")
+
         self.console.print("-" * 40)
 
     def _get_severity_counts(self, findings: List[SecurityFinding]) -> Dict[str, int]:
