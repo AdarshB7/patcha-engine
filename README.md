@@ -25,7 +25,7 @@ pip install patcha
 
 2. Run the scanner on your codebase:
 ```bash
-patcha run /path/to/your/code
+patcha /path/to/your/code
 ```
 
 3. Use the generated `shield.json` with your AI Code Editor as context
