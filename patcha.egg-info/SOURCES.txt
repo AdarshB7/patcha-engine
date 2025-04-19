@@ -1,7 +1,6 @@
 .DS_Store
 LICENSE
 README.md
-patcha_cli.py
 setup.py
 patcha/bulk.py
 patcha/cli.py

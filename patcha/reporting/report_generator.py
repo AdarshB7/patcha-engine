@@ -202,11 +202,12 @@ class ReportGenerator:
                              report_path: Path, # Expects full path including filename
                              security_score: Optional[float]) -> Optional[str]:
         """Generate an HTML report"""
-        logger.info(f"Generating HTML report at: {report_path}")
+        # Only log at info level in non-verbose mode
+        logger.debug(f"Generating HTML report at: {report_path}")
         
-        # Add debug logging
-        logger.info(f"ReportGenerator instance has jinja_env: {self.jinja_env is not None}")
-        logger.info(f"Template directory exists: {TEMPLATE_DIR.exists()}")
+        # Move debug logging to debug level
+        logger.debug(f"ReportGenerator instance has jinja_env: {self.jinja_env is not None}")
+        logger.debug(f"Template directory exists: {TEMPLATE_DIR.exists()}")
         
         html_content = "" # Initialize empty content
         try:
@@ -214,12 +215,12 @@ class ReportGenerator:
             if not self.jinja_env:
                 # Try to initialize it here as a fallback
                 try:
-                    logger.info(f"Attempting to initialize Jinja2 environment from {TEMPLATE_DIR}")
+                    logger.debug(f"Attempting to initialize Jinja2 environment from {TEMPLATE_DIR}")
                     self.jinja_env = Environment(
                         loader=FileSystemLoader(TEMPLATE_DIR),
                         autoescape=select_autoescape(['html', 'xml'])
                     )
-                    logger.info("Jinja2 environment initialized successfully")
+                    logger.debug("Jinja2 environment initialized successfully")
                 except Exception as je:
                     logger.error(f"Failed to initialize Jinja2 environment: {je}", exc_info=True)
                     return None
@@ -229,17 +230,17 @@ class ReportGenerator:
                 logger.error(f"Template directory does not exist: {TEMPLATE_DIR}")
                 return None
             
-            # List available templates for debugging
+            # List available templates for debugging only at debug level
             try:
                 templates = list(TEMPLATE_DIR.glob('*.html'))
-                logger.info(f"Available templates in {TEMPLATE_DIR}: {[t.name for t in templates]}")
+                logger.debug(f"Available templates in {TEMPLATE_DIR}: {[t.name for t in templates]}")
             except Exception as e:
                 logger.error(f"Error listing templates: {e}")
             
             # Try to get the template
             try:
                 template = self.jinja_env.get_template("report_template.html")
-                logger.info("Successfully loaded report_template.html")
+                logger.debug("Successfully loaded report_template.html")
             except jinja2.exceptions.TemplateNotFound as tnf:
                 logger.error(f"Template 'report_template.html' not found: {tnf}")
                 return None
@@ -260,7 +261,7 @@ class ReportGenerator:
             # Render the template
             try:
                 html_content = template.render(context)
-                logger.info(f"Template rendered successfully, content length: {len(html_content)}")
+                logger.debug(f"Template rendered successfully, content length: {len(html_content)}")
             except Exception as e:
                 logger.error(f"Error rendering template: {e}", exc_info=True)
                 return None
@@ -273,7 +274,7 @@ class ReportGenerator:
             try:
                 with open(report_path, 'w', encoding='utf-8') as f:
                     f.write(html_content)
-                logger.info(f"HTML report file written successfully: {report_path}")
+                logger.info(f"HTML report generated: {report_path}")
                 return str(report_path) # Return path on success
             except Exception as e:
                 logger.error(f"Error writing HTML file: {e}", exc_info=True)

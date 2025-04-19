@@ -148,7 +148,13 @@ class TruffleHogScanner(BaseScanner):
             
             # Log stderr for debugging
             if stderr:
-                logger.warning(f"TruffleHog stderr:\n---\n{stderr.strip()}\n---")
+                # Check if it's just informational JSON output
+                if '"level":"info-' in stderr and '"verified_secrets":0' in stderr:
+                    # This is just normal output, log at debug level
+                    logger.debug(f"TruffleHog info output:\n{stderr.strip()}")
+                else:
+                    # This might be an actual warning or error
+                    logger.warning(f"TruffleHog stderr:\n---\n{stderr.strip()}\n---")
             
             # Check if the output file exists and has content
             if os.path.exists(output_file) and os.path.getsize(output_file) > 0:

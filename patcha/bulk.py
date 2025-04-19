@@ -90,35 +90,37 @@ class SecurityScanner:
             self.logger.debug(f"Traceback for error in {name}:", exc_info=True) # Log full traceback at debug level
 
     def scan(self, target_url: Optional[str] = None) -> None:
-        """Main scanning function"""
-        self.logger.start_scan(str(self.repo_path))
-
-        # Define scan phases (name, function_to_call)
-        scan_phases = [
-            ("Semgrep", partial(self._run_scanner, SemgrepScanner, "Semgrep")),
-            ("Bandit", partial(self._run_scanner, BanditScanner, "Bandit")),
-            ("TruffleHog", partial(self._run_scanner, TruffleHogScanner, "TruffleHog")),
-            # ("Custom Patterns", partial(self._run_scanner, CustomPatternScanner, "Custom Patterns")), # Example
-            # Add Nikto and Trivy if applicable and configured
-            # ("Nikto", partial(self._run_scanner, NiktoScanner, "Nikto", target_url=target_url)), # Needs target_url
-            # ("Trivy FS", partial(self._run_scanner, TrivyScanner, "Trivy FS")),
-        ]
-        # Filter out phases that shouldn't run (e.g., Nikto without URL)
-        # scan_phases = [phase for phase in scan_phases if self._should_run_phase(phase[0], target_url)]
-
-        # --- Simplified Scan Execution Loop ---
+        """Run the security scan"""
         try:
-            for phase_name, phase_func in scan_phases:
-                self.logger.tool_start(phase_name)
-                try:
-                    phase_func()
-                    self.logger.tool_complete(phase_name)
-                except Exception as e:
-                    # Error is logged within _run_scanner or here if phase_func raises directly
-                    self.logger.tool_error(phase_name, f"Phase execution failed: {str(e)}")
-                    self.logger.debug(f"Traceback for error in {phase_name}:", exc_info=True)
-                    # Continue to the next phase even if one fails
-
+            # Use rich formatting for a nicer header
+            self.logger.console.print("\n[bold cyan]═════════════════════════════════════════[/bold cyan]")
+            self.logger.console.print(f"[bold cyan]🔒 PATCHA SECURITY SCAN[/bold cyan]")
+            self.logger.console.print(f"[cyan]Target: {self.repo_path}[/cyan]")
+            self.logger.console.print("[bold cyan]═════════════════════════════════════════[/bold cyan]\n")
+            
+            # --- Run scanners ---
+            self.logger.console.print("[bold]Running Security Scanners:[/bold]")
+            
+            # Run each scanner with cleaner logging - using the same format as processing steps
+            self.logger.tool_start("Semgrep")
+            self._run_scanner(SemgrepScanner, "Semgrep")
+            self.logger.tool_complete("Semgrep")
+            
+            self.logger.tool_start("Bandit")
+            self._run_scanner(BanditScanner, "Bandit")
+            self.logger.tool_complete("Bandit")
+            
+            self.logger.tool_start("TruffleHog")
+            self._run_scanner(TruffleHogScanner, "TruffleHog")
+            self.logger.tool_complete("TruffleHog")
+            
+            self.logger.tool_start("Trivy")
+            self._run_scanner(TrivyScanner, "Trivy")
+            self.logger.tool_complete("Trivy")
+            
+            # --- Process findings with cleaner output ---
+            self.logger.console.print("\n[bold]Processing Results:[/bold]")
+            
             # --- Deduplicate findings ---
             self.logger.tool_start("Deduplication")
             initial_count = len(self.findings_manager.findings)
@@ -177,12 +179,12 @@ class SecurityScanner:
 
             # Add this before HTML report generation
             if hasattr(self, 'report_generator') and self.report_generator:
-                # Check if template directory exists
+                # Check if template directory exists - only log at debug level
                 template_dir = Path(self.report_generator.jinja_env.loader.searchpath[0])
-                self.logger.info(f"Template directory path: {template_dir}")
-                self.logger.info(f"Template directory exists: {template_dir.exists()}")
-                if template_dir.exists():
-                    self.logger.info(f"Templates in directory: {list(template_dir.glob('*.html'))}")
+                logger.debug(f"Template directory path: {template_dir}")
+                logger.debug(f"Template directory exists: {template_dir.exists()}")
+                if template_dir.exists() and self.logger.verbose:
+                    logger.debug(f"Templates in directory: {list(template_dir.glob('*.html'))}")
 
             # Generate detailed HTML report (patcha.html) if ReportGenerator is available
             if self.report_generator:
