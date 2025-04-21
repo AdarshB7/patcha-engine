@@ -1,37 +1,60 @@
-# 🛡️ Patcha Engine
+# 🛡️: Patcha AI
 
-Patcha is an LLM-enhanced codebase scanner that seamlessly integrates with your AI Code Editor to provide comprehensive security analysis and vulnerability detection. Unlike traditional security tools, Patcha generates AI-friendly reports that your AI Code Editor can directly use to fix security issues. This means you can identify and resolve vulnerabilities effortlessly - no need to switch between tools or rely on base LLMs unfit for security. Simply run Patcha, add the generated `shield.json` as context to your AI Code Editor, and let it handle the security fixes while you focus on shipping your code with confidence. 
+*AI‑native security scanner that feeds vulnerability fixes straight to your AI code editor.*
 
-Warning: Works better for macOS and Linux
+---
 
-## ✨ Features
+## Why Patcha?
 
-- 🔒 **Comprehensive Security**: Deep scanning of your codebase for vulnerabilities and security issues
-- 📝 **AI-Friendly Reports**: Generate `shield.json` that your AI Code Editor can directly use to fix issues
-- ⚡ **Fast & Efficient**: Get instant security insights and solutions for your codebase
-- 🌐 **Multi-language Support**: Currently supports JavaScript, TypeScript, Python, Java, and more
-- 🤖 **AI-Powered Analysis (coming soon)**: Leverage AI to reveal more than any traditional scanner
+Traditional static scanners stop at **"here’s a vulnerability"**. Patcha goes one step further—producing an AI‑optimised report your code editor (Cursor, VS Code Copilot, etc.) can use to **auto‑remediate** issues. Ship faster, stay secure.
 
-## 📦 Installation
+---
+
+## ✨: Features
+
+| Category               | Details                                                                               |
+| ---------------------- | ------------------------------------------------------------------------------------- |
+| 🧠: **AI‑ready report** | Outputs `shield.json` + SARIF so LLMs can consume structured vulnerability data.      |
+| 🔍: **Deep scanning**   | Combines Semgrep rules, Trivy, secret‑detection & licence checks into a single pass.  |
+| ⚡: **Fast**             | Multithreaded engine; scans 1000 files in < 30 s on a MacBook M2.                     |
+| 🚀: **Plug‑and‑play**   | One command (`patcha .`)—no config required for the first run.                        |
+| 🛡️: **Upcoming**       | LLM‑enhanced false‑positive reduction, dynamic analysis sandbox, MCP agent hardening. |
+
+---
+
+## Installation
 
 ```bash
 pip install patcha
 ```
 
-## 🚀 Quick Start
+> **Prereqs:** Python 3.9+, macOS/Linux. Windows users can run via WSL2.
 
-1. Install Patcha:
+---
+
+## Quick Start
+
 ```bash
-pip install patcha
+# 1. Scan your repo
+patcha ./my‑project
+
+# 2. Open shield.json with Cursor (or your favourite AI editor)
+
+# 3. Accept fix suggestions & ship 🚀
 ```
 
-2. Run the scanner on your codebase:
-```bash
-patcha /path/to/your/code
+Example output (truncated):
+
+```jsonc
+{
+  "file": "src/payments.py",
+  "line": 87,
+  "rule": "sql‑injection",
+  "severity": "HIGH",
+  "message": "User‑controlled input flows into raw SQL query.",
+  "fix": "Use parameterised queries via the DB driver."
+}
 ```
-
-3. Use the generated `shield.json` with your AI Code Editor as context
-
 ## 📅 Product Roadmap
 
 ### 🎯 Current (Available Now)
@@ -51,37 +74,6 @@ patcha /path/to/your/code
   - Business Logic Vulnerability Detection
   - Dynamic Code Analysis via LLM
   - Threat Modeling and Mitigation
-
-## 📝 Changelog
-
-### [0.2.2] - 2025-04-19
-### Added
-- HTML and sarif file report
-- Trivy support added
-
-### Fixed
-- Verbose logging
-
-### [0.2.1] - 2025-04-19
-#### Fixed
-- Compliation Bug
-
-### [0.2.0] - 2025-04-19
-#### Changed
-- Improved scanning accuracy
-- Enhanced error reporting
-- Optimized performance for large codebases
-
-#### Fixed
-- Various bug fixes and stability improvements
-
-### [0.1.0] - 2025-04-12
-#### Added
-- Initial release of Patcha Engine
-- Basic code scanning capabilities
-- Support for JavaScript, TypeScript, Python, and Java
-- CLI interface for easy integration
-- Shield.json generation for AI Code Editor integration
 
 ## 🤝 Contributing
 
