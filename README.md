@@ -1,4 +1,4 @@
-# 🛡️: Patcha AI
+# 🛡️ Patcha AI
 
 *AI‑native security scanner that feeds vulnerability fixes straight to your AI code editor.*
 
@@ -6,15 +6,15 @@
 
 Traditional static scanners stop at **"here’s a vulnerability"**. Patcha goes one step further—producing an AI‑optimised report your code editor (Cursor, VS Code Copilot, etc.) can use to **auto‑remediate** issues. Ship faster, stay secure.
 
-## ✨: Features
+## ✨ Features
 
 | Category               | Details                                                                               |
 | ---------------------- | ------------------------------------------------------------------------------------- |
-| 🧠: **AI‑ready report** | Outputs `shield.json` + SARIF so LLMs can consume structured vulnerability data.      |
-| 🔍: **Deep scanning**   | Combines Semgrep rules, Trivy, secret‑detection & licence checks into a single pass.  |
-| ⚡: **Fast**             | Multithreaded engine; scans 1000 files in < 30 s on a MacBook M2.                     |
-| 🚀: **Plug‑and‑play**   | One command (`patcha .`)—no config required for the first run.                        |
-| 🛡️: **Upcoming**       | LLM‑enhanced false‑positive reduction, dynamic analysis sandbox, MCP agent hardening. |
+| 🧠 **AI‑ready report** | Outputs `shield.json` + SARIF so LLMs can consume structured vulnerability data.      |
+| 🔍 **Deep scanning**   | Combines Semgrep rules, Trivy, secret‑detection & licence checks into a single pass.  |
+| ⚡ **Fast**             | Multithreaded engine; scans 1000 files in < 30 s on a MacBook M2.                     |
+| 🚀 **Plug‑and‑play**   | One command (`patcha .`)—no config required for the first run.                        |
+| 🛡️ **Upcoming**       | LLM‑enhanced false‑positive reduction, dynamic analysis sandbox, MCP agent hardening. |
 
 
 ## Installation
