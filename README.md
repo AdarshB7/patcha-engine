@@ -2,13 +2,9 @@
 
 *AI‑native security scanner that feeds vulnerability fixes straight to your AI code editor.*
 
----
-
 ## Why Patcha?
 
 Traditional static scanners stop at **"here’s a vulnerability"**. Patcha goes one step further—producing an AI‑optimised report your code editor (Cursor, VS Code Copilot, etc.) can use to **auto‑remediate** issues. Ship faster, stay secure.
-
----
 
 ## ✨: Features
 
@@ -20,7 +16,6 @@ Traditional static scanners stop at **"here’s a vulnerability"**. Patcha goes 
 | 🚀: **Plug‑and‑play**   | One command (`patcha .`)—no config required for the first run.                        |
 | 🛡️: **Upcoming**       | LLM‑enhanced false‑positive reduction, dynamic analysis sandbox, MCP agent hardening. |
 
----
 
 ## Installation
 
@@ -29,8 +24,6 @@ pip install patcha
 ```
 
 > **Prereqs:** Python 3.9+, macOS/Linux. Windows users can run via WSL2.
-
----
 
 ## Quick Start
 
