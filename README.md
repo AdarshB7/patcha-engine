@@ -13,7 +13,7 @@ Traditional static scanners stop at **"here’s a vulnerability"**. Patcha goes 
 | 🧠 **AI‑ready report** | Outputs `shield.json` + SARIF so LLMs can consume structured vulnerability data.      |
 | 🔍 **Deep scanning**   | Combines Semgrep rules, Trivy, secret‑detection & licence checks into a single pass.  |
 | ⚡ **Fast**             | Multithreaded engine; scans 1000 files in < 30 s on a MacBook M2.                     |
-| 🚀 **Plug‑and‑play**   | One command (`patcha .`)—no config required for the first run.                        |
+| 🚀 **Plug‑and‑play**   | One command (`patcha /path/to/your/code`)—no config required for the first run.                        |
 | 🛡️ **Upcoming**       | LLM‑enhanced false‑positive reduction, dynamic analysis sandbox, MCP agent hardening. |
 
 
@@ -29,7 +29,7 @@ pip install patcha
 
 ```bash
 # 1. Scan your repo
-patcha ./my‑project
+patcha /path/to/your/code
 
 # 2. Open shield.json with Cursor (or your favourite AI editor)
 
