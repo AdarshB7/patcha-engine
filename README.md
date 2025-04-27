@@ -6,6 +6,8 @@
 
 Traditional static scanners stop at **"here’s a vulnerability"**. Patcha goes one step further—producing an AI‑optimised report your code editor (Cursor, VS Code Copilot, etc.) can use to **auto‑remediate** issues. Ship faster, stay secure.
 
+Join Our [Discord](https://discord.gg/aBKCQxRPDb)!
+
 ## ✨ Features
 
 | Category               | Details                                                                               |
